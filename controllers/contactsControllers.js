@@ -5,6 +5,7 @@ const {
   removeContact,
   updateContact,
   updateContactStatus,
+  getContactByFavorite,
 } = require("../services/contactsService");
 
 const {
@@ -15,11 +16,33 @@ const {
 const { successResult, successAddData } = require("../helpers/successResult");
 
 const ctrlGetContacts = async (req, res, next) => {
+  const { _id } = req.user;
+  const { page = 1, limit = 20, favorite = null } = req.query;
+
   try {
-    const result = await getContacts();
+    const result = await getContacts(_id, page, limit);
+
+    if (favorite === "false") {
+      const filtredResult = result.filter((elem) => elem.favorite === false);
+
+      successResult(res, 200, "list of contacts", filtredResult);
+
+      return;
+    }
+
+    if (favorite === "true") {
+      const filtredResult = result.filter((elem) => elem.favorite === true);
+
+      successResult(res, 200, "list of contacts", filtredResult);
+
+      return;
+    }
 
     if (!result.length) {
-      noDataError(res);
+      return res.status(404).json({
+        message: "no data found",
+        code: 404,
+      });
     }
 
     successResult(res, 200, "list of contacts", result);
@@ -51,6 +74,7 @@ const ctrlGetContactById = async (req, res, next) => {
 };
 
 const ctrlAddContact = async (req, res, next) => {
+  const { _id } = req.user;
   const { name, email, phone, favorite = false } = req.body;
 
   try {
@@ -61,7 +85,8 @@ const ctrlAddContact = async (req, res, next) => {
       favorite,
     };
 
-    await addContact(newContact);
+    await addContact(newContact, _id);
+
     successAddData(res, 201, "contact created");
   } catch (error) {
     console.log(error);

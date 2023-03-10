@@ -5,7 +5,6 @@ const contactModel = new Schema(
     name: {
       type: String,
       required: [true, "Set name for contact"],
-      unique: true,
     },
     email: {
       type: String,
@@ -17,6 +16,11 @@ const contactModel = new Schema(
     favorite: {
       type: Boolean,
       default: false,
+    },
+    owner: {
+      type: Schema.Types.ObjectId,
+      ref: "user",
+      required: true,
     },
   },
   { versionKey: false, timestamps: true }
