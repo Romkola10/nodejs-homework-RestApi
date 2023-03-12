@@ -1,14 +1,16 @@
+const fs = require("fs/promises");
+const path = require("path");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+const gravatar = require("gravatar");
+const resizedAvatar = require("../helpers/imageResizer");
+
 require("dotenv").config();
 const SECRET_KEY = process.env.SECRET;
+const avatarsDir = path.join(__dirname, "../", "public", "avatars");
 
 const { User } = require("../models/userModels");
-const {
-  emailInUse,
-  wrongEmailOrPassword,
-} = require("../helpers/errorHandlers");
 
 const ctrlSignup = async (req, res, next) => {
   try {
@@ -22,15 +24,21 @@ const ctrlSignup = async (req, res, next) => {
       });
     }
 
+    const avatarURL = gravatar.url(email);
     const hashPassword = bcrypt.hashSync(password, bcrypt.genSaltSync(10));
 
-    await User.create({ name, email, password: hashPassword });
+    await User.create({ name, email, password: hashPassword, avatarURL });
 
     res.json({
       status: "Created",
       code: 201,
+      message: "Registration successful",
       data: {
-        message: "Registration successful",
+        user: {
+          name,
+          email,
+          avatarURL,
+        },
       },
     });
   } catch (error) {
@@ -63,6 +71,9 @@ const ctrlLogin = async (req, res, next) => {
       status: "success",
       code: 200,
       data: {
+        user: {
+          email,
+        },
         token,
       },
     });
@@ -129,10 +140,39 @@ const ctrlUpdateCurrent = async (req, res, next) => {
   }
 };
 
+const ctrlUpdateAvatar = async (req, res, next) => {
+  const { path: tempUpload, originalname } = req.file;
+  const { _id: id } = req.user;
+  const imageName = `${id}_${originalname}`;
+
+  try {
+    const resultUpload = path.join(avatarsDir, imageName);
+
+    await fs.rename(tempUpload, resultUpload);
+    await resizedAvatar(resultUpload);
+
+    const avatarURL = path.join("public", "avatars", imageName);
+
+    await User.findByIdAndUpdate(req.user._id, { avatarURL });
+
+    res.json({
+      status: "avatar updated",
+      code: 200,
+      avatar: avatarURL,
+    });
+  } catch (error) {
+    await fs.unlink(tempUpload);
+
+    console.log(error.message);
+    next(error);
+  }
+};
+
 module.exports = {
   ctrlSignup,
   ctrlLogin,
   ctrlCurrent,
   ctrlLogout,
   ctrlUpdateCurrent,
+  ctrlUpdateAvatar,
 };
